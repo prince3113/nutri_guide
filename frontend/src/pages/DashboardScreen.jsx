@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "../api";
 import Navbar from "../components/Navbar";
 import ChatBot from "../components/ChatBot";
-import FoodScanner from "../components/FoodScanner";
 
 const MEAL_ICONS = {
   breakfast: "🌅",
@@ -56,7 +55,7 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
       try {
         const [profileData, waterData] = await Promise.all([
           apiRequest("/health-profile"),
-          apiRequest("/water-tracker"),
+          apiRequest("/water-intake"),
         ]);
         setProfile(profileData);
         setWater(waterData);
@@ -80,7 +79,7 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
     try {
       const updated = await apiRequest("/health-profile", { method: "PUT", body: JSON.stringify({ goal: editGoalValue }) });
       setProfile(updated);
-      try { setWater(await apiRequest("/water-tracker")); } catch (_) {}
+      try { setWater(await apiRequest("/water-intake")); } catch (_) {}
       showToast("Goal updated successfully!", "success");
       closeEditGoal();
     } catch (err) { showToast(err.message, "error"); }
@@ -112,33 +111,14 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
       };
       const updated = await apiRequest("/health-profile", { method: "PUT", body: JSON.stringify(payload) });
       setProfile(updated);
-      try { setWater(await apiRequest("/water-tracker")); } catch (_) {}
+      try { setWater(await apiRequest("/water-intake")); } catch (_) {}
       showToast("Profile updated successfully!", "success");
       closeEditProfile();
     } catch (err) { showToast(err.message, "error"); }
     finally { setEditProfileLoading(false); }
   }
 
-  // --- Water Tracker Actions ---
-  async function handleDrinkWater() {
-    try {
-      const updatedWater = await apiRequest("/water-tracker/drink", { method: "POST" });
-      setWater(updatedWater);
-      showToast("Gulp! Added 1 glass of water 💧", "success");
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
 
-  async function handleResetWater() {
-    try {
-      const updatedWater = await apiRequest("/water-tracker/reset", { method: "POST" });
-      setWater(updatedWater);
-      showToast("Water tracker reset.", "success");
-    } catch (err) {
-      showToast(err.message, "error");
-    }
-  }
 
   // --- Diet Plan Regeneration ---
   async function handleRegenerateDiet() {
@@ -238,10 +218,14 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
   }
 
   const ringOffset = calcBmiProgress(profile.bmi);
-  const waterPercent = water ? water.progress_percent : 0;
   const macros = profile.macros;
   const micros = profile.micronutrients;
   const report = profile.health_report;
+
+  // Safe fallback calculation for water recommendations
+  const recommendedLiters = water?.recommended_water_intake_liters ?? water?.recommended_water_intake ?? water?.target_liters ?? 2.0;
+  const recommendedGlasses = Math.ceil(recommendedLiters / 0.25);
+
 
   return (
     <div className="dashboard-screen">
@@ -288,23 +272,16 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
             </div>
           </div>
 
-          {/* Water Intake Card */}
-          <div className="metric-card glass-card water-card interactive-water animate-slide-up animate-slide-up-delay-3">
+          {/* Water Intake Recommendation Card */}
+          <div className="metric-card glass-card water-card animate-slide-up animate-slide-up-delay-3">
             <div className="water-card-header">
               <div className="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M12 2L6 12a6 6 0 1012 0L12 2z" /></svg></div>
-              <div className="metric-label">Water Intake</div>
+              <div className="metric-label">Recommended Water</div>
             </div>
-            <div className="metric-value">{water ? `${water.glasses_consumed} / ${water.target_glasses}` : "—"}</div>
-            <div className="metric-sub">glasses ({water ? water.liters_consumed : "0"}L / {water ? water.target_liters : "0"}L)</div>
-            <div className="water-visual">
-              <div className="water-fill" style={{ height: `${waterPercent}%` }}></div>
-              <div className="water-waves"><div className="wave wave-1"></div><div className="wave wave-2"></div></div>
-            </div>
-            <div className="water-actions">
-              <button className="btn-drink" onClick={handleDrinkWater}>Drink 💧</button>
-              <button className="btn-reset-water" onClick={handleResetWater} title="Reset Today's Log">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" /></svg>
-              </button>
+            <div className="metric-value">{water ? `${recommendedLiters} L` : "—"}</div>
+            <div className="metric-sub">per day (~{recommendedGlasses} glasses)</div>
+            <div style={{ marginTop: "16px", fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: "1.4" }}>
+              Based on weight ({water?.weight || profile?.weight || "—"} kg) and BMI category ({water?.category || profile?.category || "—"}). Proper hydration supports calorie control and metabolism.
             </div>
           </div>
         </div>
@@ -507,9 +484,6 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
             </div>
           </div>
         )}
-
-        {/* ======== AI Food Scanner ======== */}
-        <FoodScanner showToast={showToast} />
 
         {/* ======== Profile Summary ======== */}
         <div className="profile-info-section glass-card animate-slide-up animate-slide-up-delay-4">
