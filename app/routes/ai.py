@@ -5,12 +5,14 @@ from app.models.health_profile import HealthProfile
 from app.services.bmi_service import calculate_bmi
 from app.services.calorie_service import calculate_calories
 from app.services.ai_service import chat_with_ai
+from app.utils.throttling import throttle_request
 
 ai_bp = Blueprint("ai", __name__)
 
 
 @ai_bp.route("/chat", methods=["POST"])
 @jwt_required()
+@throttle_request(2)
 def chat():
     data = request.get_json()
 

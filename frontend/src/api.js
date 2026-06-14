@@ -1,7 +1,7 @@
 const API_BASE = "http://127.0.0.1:5000";
 
 export async function apiRequest(endpoint, options = {}) {
-  const token = localStorage.getItem("access_token");
+  const token = sessionStorage.getItem("access_token");
 
   const headers = {
     "Content-Type": "application/json",
@@ -31,13 +31,14 @@ export async function apiRequest(endpoint, options = {}) {
 }
 
 export function setToken(token) {
-  localStorage.setItem("access_token", token);
+  sessionStorage.setItem("access_token", token);
 }
 
 export function getToken() {
-  return localStorage.getItem("access_token");
+  return sessionStorage.getItem("access_token");
 }
 
 export function clearToken() {
-  localStorage.removeItem("access_token");
+  sessionStorage.removeItem("access_token");
 }
+

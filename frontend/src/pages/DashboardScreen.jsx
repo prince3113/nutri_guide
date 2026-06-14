@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { apiRequest } from "../api";
+import { apiRequest, getToken } from "../api";
 import Navbar from "../components/Navbar";
-import ChatBot from "../components/ChatBot";
 
 const MEAL_ICONS = {
   breakfast: "🌅",
@@ -124,6 +123,8 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
   async function handleRegenerateDiet() {
     setRegeneratingDiet(true);
     try {
+      // Add a small artificial delay of 800ms to allow the animation to play
+      await new Promise((resolve) => setTimeout(resolve, 800));
       const res = await apiRequest("/regenerate-diet", { method: "POST" });
       setProfile((prev) => ({
         ...prev,
@@ -147,7 +148,7 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
 
     setUploadingPhoto(true);
     try {
-      const token = localStorage.getItem("access_token");
+      const token = getToken();
       const response = await fetch("http://127.0.0.1:5000/profile-photo", {
         method: "POST",
         headers: {
@@ -232,7 +233,7 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
       <Navbar
         onNewProfile={onNewProfile}
         onLogout={onLogout}
-        showNewProfile={!!profile}
+        showNewProfile={false}
         profilePhoto={profile?.profile_photo}
         userName={profile?.user_name}
       />
@@ -442,7 +443,7 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
             </div>
             <div className="meal-grid">
               {Object.entries(profile.diet_plan).map(([meal, content]) => (
-                <div className="meal-card" key={meal}>
+                <div className={`meal-card ${regeneratingDiet ? "regenerating" : ""}`} key={meal}>
                   <div className="meal-icon">{MEAL_ICONS[meal] || "🍽️"}</div>
                   <div className="meal-name">{meal}</div>
                   <div className="meal-content">{content}</div>
@@ -614,8 +615,6 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
           </div>
         </div>
       )}
-      {/* Floating Chat Widget */}
-      <ChatBot showToast={showToast} />
     </div>
   );
 }

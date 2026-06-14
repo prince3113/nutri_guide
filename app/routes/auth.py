@@ -21,7 +21,7 @@ def register():
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-    existing_user = User.query.filter_by(email=data["email"]).first()
+    existing_user = db.session.query(User).filter_by(email=data["email"]).first()
 
     if existing_user:
         return jsonify({"message": "Email already exists"}), 409
@@ -49,7 +49,7 @@ def login():
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-    user = User.query.filter_by(email=data["email"]).first()
+    user = db.session.query(User).filter_by(email=data["email"]).first()
 
     if not user:
         return jsonify({"message": "Invalid email or password"}), 401
@@ -90,7 +90,7 @@ def upload_profile_photo():
     
     if file and allowed_file(file.filename):
         user_id = int(get_jwt_identity())
-        user = User.query.get(user_id)
+        user = db.session.query(User).get(user_id)
         if not user:
             return jsonify({"message": "User not found"}), 404
             
@@ -126,7 +126,7 @@ def upload_profile_photo():
 @jwt_required()
 def delete_profile_photo():
     user_id = int(get_jwt_identity())
-    user = User.query.get(user_id)
+    user = db.session.query(User).get(user_id)
     if not user:
         return jsonify({"message": "User not found"}), 404
         
@@ -149,7 +149,7 @@ def delete_profile_photo():
 @jwt_required()
 def get_profile_photo():
     user_id = int(get_jwt_identity())
-    user = User.query.get(user_id)
+    user = db.session.query(User).get(user_id)
     if not user:
         return jsonify({"message": "User not found"}), 404
         

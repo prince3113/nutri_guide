@@ -7,7 +7,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
 from app.models.health_profile import HealthProfile
+from app.models.diet_plan import DietPlan
 from app.schemas.health_profile_schema import HealthProfileSchema
+from app.utils.throttling import throttle_request
 
 
 from app.services.bmi_service import calculate_bmi
@@ -69,9 +71,28 @@ def build_profile_response(profile):
         "micronutrients": micros,
     }
 
-    diet_plan = generate_diet_plan_ai(user_profile)
-    if not diet_plan:
+    # Fetch cached diet plan from database
+    diet_plan_record = db.session.query(DietPlan).filter_by(user_id=profile.user_id).first()
+    if diet_plan_record:
+        diet_plan = diet_plan_record.meal_plan
+    else:
+        # Generate new diet plan using local fast preset generator
         diet_plan = generate_diet_plan(profile.goal, profile.diet_type)
+        
+        # Save to database cache
+        try:
+            new_diet_plan_record = DietPlan(
+                user_id=profile.user_id,
+                daily_calories=int(target_calories),
+                protein=macros.get("protein_g"),
+                carbs=macros.get("carbs_g"),
+                fats=macros.get("fats_g"),
+                meal_plan=diet_plan
+            )
+            db.session.add(new_diet_plan_record)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
     health_report = generate_health_report(
         bmi, category, bmr, maintenance_calories,
@@ -116,7 +137,7 @@ def create_health_profile():
     user_id = int(get_jwt_identity())
 
     # Update if profile exists, otherwise create new
-    profile = HealthProfile.query.filter_by(user_id=user_id).first()
+    profile = db.session.query(HealthProfile).filter_by(user_id=user_id).first()
     if profile:
         updatable_fields = ["age", "gender", "height", "weight", "activity_level", "goal", "diet_type"]
         for field in updatable_fields:
@@ -148,7 +169,7 @@ def get_health_profile():
 
     user_id = int(get_jwt_identity())
 
-    profile = HealthProfile.query.filter_by(
+    profile = db.session.query(HealthProfile).filter_by(
         user_id=user_id
     ).first()
 
@@ -166,7 +187,7 @@ def update_health_profile():
 
     user_id = int(get_jwt_identity())
 
-    profile = HealthProfile.query.filter_by(
+    profile = db.session.query(HealthProfile).filter_by(
         user_id=user_id
     ).first()
 
@@ -204,7 +225,7 @@ def get_water_intake():
 
     user_id = int(get_jwt_identity())
 
-    profile = HealthProfile.query.filter_by(
+    profile = db.session.query(HealthProfile).filter_by(
         user_id=user_id
     ).first()
 
@@ -238,7 +259,7 @@ def regenerate_diet():
     """Generate a new random diet plan variant."""
     user_id = int(get_jwt_identity())
 
-    profile = HealthProfile.query.filter_by(user_id=user_id).first()
+    profile = db.session.query(HealthProfile).filter_by(user_id=user_id).first()
     if not profile:
         return jsonify({"message": "Health profile not found"}), 404
 
@@ -269,11 +290,30 @@ def regenerate_diet():
         "micronutrients": micros,
     }
     
-    new_plan = generate_diet_plan_ai(user_profile)
-    variant_idx = "ai"
-    
-    if not new_plan:
-        new_plan, variant_idx = regenerate_diet_plan(profile.goal, profile.diet_type)
+    # Generate new diet plan variant using local fast preset generator
+    new_plan, variant_idx = regenerate_diet_plan(profile.goal, profile.diet_type)
+
+    try:
+        diet_plan_record = db.session.query(DietPlan).filter_by(user_id=user_id).first()
+        if diet_plan_record:
+            diet_plan_record.meal_plan = new_plan
+            diet_plan_record.daily_calories = int(target_calories)
+            diet_plan_record.protein = macros.get("protein_g")
+            diet_plan_record.carbs = macros.get("carbs_g")
+            diet_plan_record.fats = macros.get("fats_g")
+        else:
+            diet_plan_record = DietPlan(
+                user_id=user_id,
+                daily_calories=int(target_calories),
+                protein=macros.get("protein_g"),
+                carbs=macros.get("carbs_g"),
+                fats=macros.get("fats_g"),
+                meal_plan=new_plan
+            )
+            db.session.add(diet_plan_record)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
     return jsonify({
         "diet_plan": new_plan,
