@@ -7,8 +7,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app import db
 from app.models.health_profile import HealthProfile
-from app.models.water_log import WaterLog
 from app.schemas.health_profile_schema import HealthProfileSchema
+
 
 from app.services.bmi_service import calculate_bmi
 from app.services.calorie_service import calculate_calories
@@ -113,24 +113,32 @@ def create_health_profile():
     except ValidationError as err:
         return jsonify(err.messages), 400
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
-    profile = HealthProfile(
-        user_id=user_id,
-        age=data["age"],
-        gender=data["gender"],
-        height=data["height"],
-        weight=data["weight"],
-        activity_level=data["activity_level"],
-        goal=data["goal"],
-        diet_type=data["diet_type"],
-    )
+    # Update if profile exists, otherwise create new
+    profile = HealthProfile.query.filter_by(user_id=user_id).first()
+    if profile:
+        updatable_fields = ["age", "gender", "height", "weight", "activity_level", "goal", "diet_type"]
+        for field in updatable_fields:
+            if field in data:
+                setattr(profile, field, data[field])
+    else:
+        profile = HealthProfile(
+            user_id=user_id,
+            age=data["age"],
+            gender=data["gender"],
+            height=data["height"],
+            weight=data["weight"],
+            activity_level=data["activity_level"],
+            goal=data["goal"],
+            diet_type=data["diet_type"],
+        )
+        db.session.add(profile)
 
-    db.session.add(profile)
     db.session.commit()
 
     response = build_profile_response(profile)
-    response["message"] = "Health profile created successfully"
+    response["message"] = "Profile updated successfully" if profile.id else "Health profile created successfully"
     return jsonify(response), 201
 
 
@@ -138,7 +146,7 @@ def create_health_profile():
 @jwt_required()
 def get_health_profile():
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     profile = HealthProfile.query.filter_by(
         user_id=user_id
@@ -156,7 +164,7 @@ def get_health_profile():
 @jwt_required()
 def update_health_profile():
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     profile = HealthProfile.query.filter_by(
         user_id=user_id
@@ -194,7 +202,7 @@ def update_health_profile():
 @jwt_required()
 def get_water_intake():
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     profile = HealthProfile.query.filter_by(
         user_id=user_id
@@ -224,104 +232,11 @@ def get_water_intake():
     }), 200
 
 
-@health_bp.route("/water-tracker", methods=["GET"])
-@jwt_required()
-def get_water_tracker():
-    """Get today's water tracking data."""
-    user_id = get_jwt_identity()
-
-    profile = HealthProfile.query.filter_by(user_id=user_id).first()
-
-    # Calculate target glasses from recommended water intake
-    target_glasses = 8  # default
-    if profile:
-        bmi, _ = calculate_bmi(profile.weight, profile.height)
-        _, recommended = calculate_water_intake(profile.weight, bmi)
-        target_glasses = max(1, math.ceil(recommended / 0.25))  # 1 glass = 250ml
-
-    today = date.today()
-    log = WaterLog.query.filter_by(user_id=user_id, log_date=today).first()
-
-    if not log:
-        log = WaterLog(user_id=user_id, target_glasses=target_glasses)
-        db.session.add(log)
-        db.session.commit()
-
-    progress = round((log.glasses_consumed / log.target_glasses) * 100, 1) if log.target_glasses > 0 else 0
-
-    return jsonify({
-        "glasses_consumed": log.glasses_consumed,
-        "target_glasses": log.target_glasses,
-        "progress_percent": min(progress, 100),
-        "liters_consumed": round(log.glasses_consumed * 0.25, 2),
-        "target_liters": round(log.target_glasses * 0.25, 2),
-        "date": str(today),
-    }), 200
-
-
-@health_bp.route("/water-tracker/drink", methods=["POST"])
-@jwt_required()
-def drink_water():
-    """Add 1 glass of water to today's log."""
-    user_id = get_jwt_identity()
-    today = date.today()
-
-    log = WaterLog.query.filter_by(user_id=user_id, log_date=today).first()
-
-    if not log:
-        profile = HealthProfile.query.filter_by(user_id=user_id).first()
-        target_glasses = 8
-        if profile:
-            bmi, _ = calculate_bmi(profile.weight, profile.height)
-            _, recommended = calculate_water_intake(profile.weight, bmi)
-            target_glasses = max(1, math.ceil(recommended / 0.25))
-        log = WaterLog(user_id=user_id, target_glasses=target_glasses)
-        db.session.add(log)
-
-    log.glasses_consumed += 1
-    db.session.commit()
-
-    progress = round((log.glasses_consumed / log.target_glasses) * 100, 1) if log.target_glasses > 0 else 0
-
-    return jsonify({
-        "glasses_consumed": log.glasses_consumed,
-        "target_glasses": log.target_glasses,
-        "progress_percent": min(progress, 100),
-        "liters_consumed": round(log.glasses_consumed * 0.25, 2),
-        "target_liters": round(log.target_glasses * 0.25, 2),
-        "date": str(today),
-        "message": "Water logged!"
-    }), 200
-
-
-@health_bp.route("/water-tracker/reset", methods=["POST"])
-@jwt_required()
-def reset_water():
-    """Reset today's water count to 0."""
-    user_id = get_jwt_identity()
-    today = date.today()
-
-    log = WaterLog.query.filter_by(user_id=user_id, log_date=today).first()
-    if log:
-        log.glasses_consumed = 0
-        db.session.commit()
-
-    return jsonify({
-        "glasses_consumed": 0,
-        "target_glasses": log.target_glasses if log else 8,
-        "progress_percent": 0,
-        "liters_consumed": 0,
-        "target_liters": round((log.target_glasses if log else 8) * 0.25, 2),
-        "date": str(today),
-        "message": "Water tracker reset!"
-    }), 200
-
-
 @health_bp.route("/regenerate-diet", methods=["POST"])
 @jwt_required()
 def regenerate_diet():
     """Generate a new random diet plan variant."""
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     profile = HealthProfile.query.filter_by(user_id=user_id).first()
     if not profile:

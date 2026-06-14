@@ -9,7 +9,8 @@ class HealthProfile(db.Model):
     user_id = db.Column(
         db.Integer,
         db.ForeignKey('users.id'),
-        nullable=False
+        nullable=False,
+        unique=True
     )
 
     age = db.Column(db.Integer, nullable=False)

@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.models.health_profile import HealthProfile
 from app.services.bmi_service import calculate_bmi
 from app.services.calorie_service import calculate_calories
-from app.services.ai_service import chat_with_ai, recognize_food
+from app.services.ai_service import chat_with_ai
 
 ai_bp = Blueprint("ai", __name__)
 
@@ -21,7 +21,7 @@ def chat():
     if not user_message:
         return jsonify({"message": "Message cannot be empty"}), 400
 
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
 
     # Build user profile context
     user_profile = None
@@ -52,23 +52,3 @@ def chat():
         "response": response_text,
     }), 200
 
-
-@ai_bp.route("/recognize-food", methods=["POST"])
-@jwt_required()
-def recognize_food_route():
-    data = request.get_json()
-
-    if not data or "image" not in data:
-        return jsonify({"message": "Image data is required"}), 400
-
-    image_base64 = data["image"]
-
-    if not image_base64:
-        return jsonify({"message": "Image data cannot be empty"}), 400
-
-    result = recognize_food(image_base64)
-
-    if "error" in result:
-        return jsonify({"message": result["error"]}), 500
-
-    return jsonify(result), 200

@@ -1,6 +1,5 @@
 import requests
 import json
-import base64
 from flask import current_app
 
 
@@ -23,24 +22,6 @@ Guidelines:
 - If asked about medical conditions, recommend consulting a doctor
 - Use emoji occasionally to be friendly
 """
-
-FOOD_RECOGNITION_PROMPT = """Analyze this food image and provide the following information in JSON format:
-{
-    "food_name": "Name of the food item(s)",
-    "description": "Brief description of the dish",
-    "estimated_calories": <number>,
-    "estimated_protein_g": <number>,
-    "estimated_carbs_g": <number>,
-    "estimated_fats_g": <number>,
-    "serving_size": "approximate serving size",
-    "health_rating": "healthy/moderate/unhealthy",
-    "tips": "One brief tip about this food"
-}
-
-Be as accurate as possible with calorie estimates. If multiple food items are visible, provide totals.
-Return ONLY valid JSON, no other text."""
-
-
 def chat_with_ai(message, user_profile=None):
     """
     Send a nutrition question to Google Gemini and get a response.
@@ -92,89 +73,6 @@ def chat_with_ai(message, user_profile=None):
         return f"Error connecting to AI service: {str(e)}"
     except Exception as e:
         return f"An unexpected error occurred: {str(e)}"
-
-
-def recognize_food(image_base64):
-    """
-    Send a food image to Google Gemini Vision and get nutrition analysis.
-    """
-    api_key = current_app.config.get("GEMINI_API_KEY")
-    if not api_key:
-        return {
-            "error": "AI assistant is not configured. Please set GEMINI_API_KEY in your config."
-        }
-
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}"
-
-    # Remove data URI prefix if present
-    if "," in image_base64:
-        image_base64 = image_base64.split(",")[1]
-
-    payload = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": [
-                    {
-                        "inlineData": {
-                            "mimeType": "image/jpeg",
-                            "data": image_base64
-                        }
-                    },
-                    {
-                        "text": FOOD_RECOGNITION_PROMPT
-                    }
-                ]
-            }
-        ],
-        "generationConfig": {
-            "temperature": 0.3,
-            "maxOutputTokens": 500,
-        }
-    }
-
-    try:
-        response = requests.post(url, json=payload, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-
-        candidates = data.get("candidates", [])
-        if candidates:
-            parts = candidates[0].get("content", {}).get("parts", [])
-            if parts:
-                text = parts[0].get("text", "")
-                # Try to parse JSON from the response
-                # Strip markdown code block if present
-                text = text.strip()
-                if text.startswith("```"):
-                    text = text.split("\n", 1)[1] if "\n" in text else text[3:]
-                if text.endswith("```"):
-                    text = text[:-3]
-                text = text.strip()
-
-                try:
-                    return json.loads(text)
-                except json.JSONDecodeError:
-                    return {
-                        "food_name": "Unknown",
-                        "description": text,
-                        "estimated_calories": 0,
-                        "estimated_protein_g": 0,
-                        "estimated_carbs_g": 0,
-                        "estimated_fats_g": 0,
-                        "serving_size": "Unknown",
-                        "health_rating": "moderate",
-                        "tips": "Could not parse nutrition data."
-                    }
-
-        return {"error": "Could not analyze the image. Please try again."}
-
-    except requests.exceptions.Timeout:
-        return {"error": "The AI service is taking too long. Please try again."}
-    except requests.exceptions.RequestException as e:
-        return {"error": f"Error connecting to AI service: {str(e)}"}
-    except Exception as e:
-        return {"error": f"An unexpected error occurred: {str(e)}"}
 
 
 DIET_PLAN_SYSTEM_PROMPT = """You are a professional clinical nutritionist.

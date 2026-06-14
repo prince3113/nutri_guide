@@ -89,7 +89,7 @@ def upload_profile_photo():
         return jsonify({"message": "No photo file selected"}), 400
     
     if file and allowed_file(file.filename):
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         user = User.query.get(user_id)
         if not user:
             return jsonify({"message": "User not found"}), 404
@@ -125,7 +125,7 @@ def upload_profile_photo():
 @auth_bp.route("/profile-photo", methods=["DELETE"])
 @jwt_required()
 def delete_profile_photo():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     if not user:
         return jsonify({"message": "User not found"}), 404
@@ -148,7 +148,7 @@ def delete_profile_photo():
 @auth_bp.route("/profile-photo", methods=["GET"])
 @jwt_required()
 def get_profile_photo():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     user = User.query.get(user_id)
     if not user:
         return jsonify({"message": "User not found"}), 404
