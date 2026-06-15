@@ -28,9 +28,7 @@ def create_app():
 
     from app.routes.auth import auth_bp
     from app.routes.health import health_bp
-    from app.routes.ai import ai_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(health_bp)
-    app.register_blueprint(ai_bp)
 
     return app

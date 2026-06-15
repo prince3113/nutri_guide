@@ -2,7 +2,6 @@ from flask import Blueprint, request, jsonify
 from flask_bcrypt import Bcrypt
 from flask_jwt_extended import create_access_token
 from marshmallow import ValidationError
-
 from app import db
 from app.models.user import User
 from app.schemas.user_schema import UserRegisterSchema, UserLoginSchema

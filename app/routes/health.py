@@ -15,7 +15,6 @@ from app.utils.throttling import throttle_request
 from app.services.bmi_service import calculate_bmi
 from app.services.calorie_service import calculate_calories
 from app.services.diet_service import generate_diet_plan, regenerate_diet_plan
-from app.services.ai_service import generate_diet_plan_ai
 from app.services.water_service import calculate_water_intake
 from app.services.nutrition_service import (
     calculate_macros,
@@ -77,7 +76,7 @@ def build_profile_response(profile):
         diet_plan = diet_plan_record.meal_plan
     else:
         # Generate new diet plan using local fast preset generator
-        diet_plan = generate_diet_plan(profile.goal, profile.diet_type)
+        diet_plan = generate_diet_plan(profile.goal, profile.diet_type, bmi=bmi)
         
         # Save to database cache
         try:
@@ -291,7 +290,7 @@ def regenerate_diet():
     }
     
     # Generate new diet plan variant using local fast preset generator
-    new_plan, variant_idx = regenerate_diet_plan(profile.goal, profile.diet_type)
+    new_plan, variant_idx = regenerate_diet_plan(profile.goal, profile.diet_type, bmi=bmi)
 
     try:
         diet_plan_record = db.session.query(DietPlan).filter_by(user_id=user_id).first()

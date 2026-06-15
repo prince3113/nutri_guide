@@ -395,7 +395,7 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
               </div>
               <div className="report-card">
                 <div className="report-card-icon">🧬</div>
-                <div className="report-card-label">Est. Body Fat</div>
+                <div className="report-card-label">Est. Body Fat (Approx)</div>
                 <div className="report-card-value">{report.body_fat_estimate}%</div>
               </div>
               <div className="report-card report-card-wide">
@@ -442,13 +442,17 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
               </div>
             </div>
             <div className="meal-grid">
-              {Object.entries(profile.diet_plan).map(([meal, content]) => (
-                <div className={`meal-card ${regeneratingDiet ? "regenerating" : ""}`} key={meal}>
-                  <div className="meal-icon">{MEAL_ICONS[meal] || "🍽️"}</div>
-                  <div className="meal-name">{meal}</div>
-                  <div className="meal-content">{content}</div>
-                </div>
-              ))}
+              {["breakfast", "lunch", "snacks", "dinner"].map((meal) => {
+                const content = profile.diet_plan[meal];
+                if (!content) return null;
+                return (
+                  <div className={`meal-card ${regeneratingDiet ? "regenerating" : ""}`} key={meal}>
+                    <div className="meal-icon">{MEAL_ICONS[meal] || "🍽️"}</div>
+                    <div className="meal-name">{meal}</div>
+                    <div className="meal-content">{content}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

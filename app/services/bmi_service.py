@@ -1,8 +1,8 @@
 def calculate_bmi(weight, height):
-    height_m = height / 100
+    height_in_m = height / 100
 
     bmi = round(
-        weight / (height_m ** 2),
+        weight / (height_in_m ** 2),
         2
     )
 
