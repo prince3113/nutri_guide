@@ -53,12 +53,28 @@ export default function ProfileScreen({ onProfileCreated, onLogout, showToast })
 
       <div className="profile-container">
         <div className="profile-header animate-slide-up">
+          <span className="eyebrow">Personal setup</span>
           <h1>Build Your Health Profile</h1>
           <p>Tell us about yourself and we&apos;ll create your personalized nutrition plan</p>
         </div>
 
+        <div className="profile-preview-strip animate-slide-up animate-slide-up-delay-1">
+          <div className="preview-pill active">
+            <span className="preview-mark">01</span>
+            Body metrics
+          </div>
+          <div className="preview-pill">
+            <span className="preview-mark">02</span>
+            Activity rhythm
+          </div>
+          <div className="preview-pill">
+            <span className="preview-mark">03</span>
+            Meal preference
+          </div>
+        </div>
+
         <form
-          className="glass-card profile-form animate-slide-up animate-slide-up-delay-1"
+          className="glass-card profile-form animate-slide-up animate-slide-up-delay-2"
           onSubmit={handleSubmit}
         >
           <div className="form-grid">
@@ -154,8 +170,8 @@ export default function ProfileScreen({ onProfileCreated, onLogout, showToast })
                 onChange={(e) => updateField("diet_type", e.target.value)}
                 required
               >
-                <option value="vegetarian">Vegetarian 🥗</option>
-                <option value="non-vegetarian">Non-Vegetarian 🍗</option>
+                <option value="vegetarian">Vegetarian</option>
+                <option value="non-vegetarian">Non-Vegetarian</option>
               </select>
             </div>
           </div>
