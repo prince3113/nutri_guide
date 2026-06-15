@@ -78,7 +78,9 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
     try {
       const updated = await apiRequest("/health-profile", { method: "PUT", body: JSON.stringify({ goal: editGoalValue }) });
       setProfile(updated);
-      try { setWater(await apiRequest("/water-intake")); } catch (_) {}
+      try { setWater(await apiRequest("/water-intake")); } catch {
+        // Water refresh is optional after a goal-only update.
+      }
       showToast("Goal updated successfully!", "success");
       closeEditGoal();
     } catch (err) { showToast(err.message, "error"); }
@@ -110,7 +112,9 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
       };
       const updated = await apiRequest("/health-profile", { method: "PUT", body: JSON.stringify(payload) });
       setProfile(updated);
-      try { setWater(await apiRequest("/water-intake")); } catch (_) {}
+      try { setWater(await apiRequest("/water-intake")); } catch {
+        // Water refresh is optional after profile edits.
+      }
       showToast("Profile updated successfully!", "success");
       closeEditProfile();
     } catch (err) { showToast(err.message, "error"); }
@@ -240,9 +244,45 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
 
       <div className="dashboard-container">
         <div className="dashboard-header animate-slide-up">
+          <span className="eyebrow">Live nutrition cockpit</span>
           <h1>Your Health Dashboard</h1>
           <p>Here&apos;s your personalized health overview</p>
         </div>
+
+        <section className="dashboard-hero glass-card animate-slide-up animate-slide-up-delay-1">
+          <div className="hero-copy">
+            <span className="hero-kicker">{profile.goal}</span>
+            <h2>{profile.user_name ? `${profile.user_name}'s` : "Your"} daily plan is ready</h2>
+            <p>
+              Calories, hydration, macros, meal timing, and micronutrients are tuned to your latest profile.
+            </p>
+            <div className="hero-actions">
+              <button className="btn btn-primary" onClick={handleRegenerateDiet} disabled={regeneratingDiet}>
+                {regeneratingDiet ? <div className="spinner"></div> : <span>Refresh Diet Plan</span>}
+              </button>
+              <button className="btn btn-soft" onClick={openEditProfile}>
+                <span>Fine Tune Profile</span>
+              </button>
+            </div>
+          </div>
+          <div className="hero-stats">
+            <div className="hero-stat">
+              <span>BMI</span>
+              <strong>{profile.bmi}</strong>
+              <small>{profile.category}</small>
+            </div>
+            <div className="hero-stat accent">
+              <span>Calories</span>
+              <strong>{profile.target_calories}</strong>
+              <small>kcal/day</small>
+            </div>
+            <div className="hero-stat">
+              <span>Water</span>
+              <strong>{recommendedLiters}L</strong>
+              <small>{recommendedGlasses} glasses</small>
+            </div>
+          </div>
+        </section>
 
         {/* ======== Metrics Grid ======== */}
         <div className="metrics-grid">
@@ -447,7 +487,9 @@ export default function DashboardScreen({ onNewProfile, onLogout, showToast }) {
                 if (!content) return null;
                 return (
                   <div className={`meal-card ${regeneratingDiet ? "regenerating" : ""}`} key={meal}>
-                    <div className="meal-icon">{MEAL_ICONS[meal] || "🍽️"}</div>
+                    <div className="meal-icon" aria-label={MEAL_ICONS[meal] ? meal : "meal"}>
+                      {meal === "breakfast" ? "AM" : meal === "lunch" ? "NOON" : meal === "dinner" ? "PM" : "SNACK"}
+                    </div>
                     <div className="meal-name">{meal}</div>
                     <div className="meal-content">{content}</div>
                   </div>
